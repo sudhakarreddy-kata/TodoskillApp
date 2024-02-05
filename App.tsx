@@ -1,16 +1,20 @@
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, Text, View, TextInput, Button} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DatePicker from 'react-native-date-picker';
 
 interface IToDo {
   text: string;
   completed: boolean;
+  taskdate: Date;
 }
 
 export default function App() {
   const [value, setValue] = useState<string>('');
   const [toDoList, setToDos] = useState<IToDo[]>([]);
   const [error, showError] = useState<Boolean>(false);
+  const [date, setDate] = useState(new Date());
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const getData = async () => {
@@ -20,22 +24,27 @@ export default function App() {
         console.log(storeData + 'data');
         if (parsedData) {
           setToDos(parsedData);
-          console.log(parsedData + '............');
+          console.log(JSON.stringify(parsedData) + '............');
         }
       } catch (error) {
         console.log('Error retrieving data:', error);
       }
     };
-
     getData();
   }, []);
 
   const handleSubmit = (): void => {
-    console.log('task started');
-    if (value.trim()) setToDos([...toDoList, {text: value, completed: false}]);
-    else showError(true);
+    console.log('task created');
+    if (value.trim() && date != new Date()) {
+      setToDos([
+        ...toDoList,
+        {text: value, completed: false, taskdate: date.toDateString()},
+      ]);
+      storeData();
+      //getData();
+    } else showError(true);
+    setDate(date);
     setValue('');
-    storeData();
   };
 
   const removeItem = (index: number): void => {
@@ -58,20 +67,49 @@ export default function App() {
       console.log('error');
     }
   };
-  // const getData = async () => {
-  //   console.log('getting data');
-  //   try {
-  //     const value1 = await AsyncStorage.getItem('my-key');
-  //     setValue(value1);
-  //     console.log('got data', value1);
-  //   } catch (e) {
-  //     // error reading value
-  //     console.log('error occured');
-  //   }
-  // };
+  const getData = async () => {
+    try {
+      const storedData = await AsyncStorage.getItem('myArray');
+      const parsedData = JSON.parse(storedData);
+      console.log(storeData + 'data');
+      if (parsedData) {
+        setToDos(parsedData);
+        console.log(JSON.stringify(parsedData) + '............');
+      }
+    } catch (error) {
+      console.log('Error retrieving data:', error);
+    }
+  };
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Todo List</Text>
+      <View>
+        <Button
+          title=" Pick Date "
+          onPress={() => setOpen(true)}
+          color="green"
+        />
+        <DatePicker
+          modal
+          open={open}
+          mode="date"
+          date={date}
+          minimumDate={date}
+          onConfirm={date => {
+            setOpen(false);
+            //setToDos([...toDoList, {date}]);
+            setDate(date);
+            console.log(date.toDateString());
+            showError(false);
+          }}
+          onCancel={() => {
+            setOpen(false);
+            //setDate(null);
+            showError(true);
+          }}
+        />
+      </View>
+      <Text>{date.toDateString()}</Text>
       <View style={styles.inputWrapper}>
         <TextInput
           placeholder="Enter your todo task..."
@@ -95,9 +133,11 @@ export default function App() {
             style={[
               styles.task,
               {textDecorationLine: toDo.completed ? 'line-through' : 'none'},
-            ]}>
+            ]}
+            numberOfLines={3}>
             {toDo.text}
           </Text>
+          <Text style={{color: 'green'}}>{toDo.taskdate}</Text>
           <Button
             title={toDo.completed ? 'Completed' : 'Complete'}
             onPress={() => toggleComplete(index)}
@@ -147,16 +187,14 @@ const styles = StyleSheet.create({
   },
   listItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
     marginBottom: 10,
   },
   addButton: {
     alignItems: 'flex-end',
   },
   task: {
-    width: 200,
+    width: 90,
   },
   error: {
     color: 'red',
